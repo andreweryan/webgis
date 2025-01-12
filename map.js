@@ -178,19 +178,22 @@ map.on("draw:created", function(e) {
         layer.setStyle({
             color:"#000000",
             weight:1,
-            fillColor: "#bfbfbf"});
+            fillOpacity: 0.25,
+            fillColor: "#4287f5"});
     }
     else if (e.layerType === "circle") {
         layer.setStyle({
             color:"#000000",
             weight:1,
-            fillColor: "#bfbfbf"});
+            fillOpacity: 0.25,
+            fillColor: "#4287f5"});
     }
     else if (e.layerType === "rectangle") {
         layer.setStyle({
             color:"#000000",
             weight:1,
-            fillColor: "#bfbfbf"});
+            fillOpacity: 0.25,
+            fillColor: "#4287f5"});
     }
     else if (e.layerType === "polyline") {
         layer.setStyle({
