@@ -131,10 +131,7 @@ const drawControl = new L.Control.Draw({
             repeatMode: true
         },
         circle: {
-            repeatMode: true,
-            shapeOptions: {
-                color: '#28fc03'
-            }
+            repeatMode: true
         },
         rectangle: {
             repeatMode: true
@@ -164,6 +161,32 @@ map.on("draw:created", function(e) {
         const polygon = createCirclePolygon(center, radius, points);
         layer = polygon;
     }
+
+    if (e.layerType === "polygon") {
+        layer.setStyle({
+            color:"#000000",
+            weight:1,
+            fillColor: "#bfbfbf"});
+    }
+    else if (e.layerType === "circle") {
+        layer.setStyle({
+            color:"#000000",
+            weight:1,
+            fillColor: "#bfbfbf"});
+    }
+    else if (e.layerType === "rectangle") {
+        layer.setStyle({
+            color:"#000000",
+            weight:1,
+            fillColor: "#bfbfbf"});
+    }
+    else if (e.layerType === "polyline") {
+        layer.setStyle({
+            color:"#000000",
+            weight:2,
+        });
+    }
+
     
     drawnItems.addLayer(layer);
     updateJson();
