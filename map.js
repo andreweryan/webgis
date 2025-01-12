@@ -33,6 +33,8 @@ basemaps = {
 
 basemaps["OpenStreetMap"].addTo(map);
 
+L.control.scale({position: "bottomright"}).addTo(map);
+
 var popup = L.popup();
 
 function onMapClick(e) {
@@ -134,27 +136,70 @@ layerControl = L.control.layers(basemaps, overlays, {
 
 const drawControl = new L.Control.Draw({
     draw: {
-        polygon: true,
-        circle: true,
-        rectangle: true,
-        polyline: true,
-        marker: true
+        polygon: {
+            repeatMode: true
+        },
+        circle: {
+            repeatMode: true,
+            shapeOptions: {
+                color: '#28fc03'
+            }
+        },
+        rectangle: {
+            repeatMode: true
+        },
+        polyline: {
+            repeatMode: true
+        },
+        marker: {
+            repeatMode: true
+        },
     },
     edit: {
         featureGroup: drawnItems
     }
 });
+
 map.addControl(drawControl);
-L.control.scale({position: "bottomright"}).addTo(map);
 
 map.on("draw:created", function(e) {
-    const layer = e.layer;
+    let layer = e.layer;
+    
+    // Convert circle to polygon if the layer is a circle
+    if (e.layerType === 'circle') {
+        const center = layer.getLatLng();
+        const radius = layer.getRadius();
+        const points = 32; // Number of points to create the polygon
+        const polygon = createCirclePolygon(center, radius, points);
+        layer = polygon;
+    }
+    
     drawnItems.addLayer(layer);
     updateJson();
 });
 
+// Function to create a polygon that approximates a circle
+function createCirclePolygon(center, radius, points) {
+    const coordinates = [];
+    const radiusInDegrees = radius / 111300; // Convert meters to degrees (approximate)
+    
+    for (let i = 0; i <= points; i++) {
+        const angle = (i * 2 * Math.PI) / points;
+        const lat = center.lat + (radiusInDegrees * Math.cos(angle));
+        const lng = center.lng + (radiusInDegrees * Math.sin(angle) / Math.cos(center.lat * Math.PI / 180));
+        coordinates.push([lat, lng]);
+    }
+    
+    // Close the polygon by adding the first point again
+    coordinates.push(coordinates[0]);
+    
+    // Create and return a Leaflet polygon
+    return L.polygon(coordinates);
+}
+
 map.on("draw:edited", updateJson);
 map.on("draw:deleted", updateJson);
+
 
 setTimeout(() => {
     map.invalidateSize();
