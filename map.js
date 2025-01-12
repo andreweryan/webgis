@@ -6,31 +6,184 @@ let overlays = {};
 let geotiffLayer;
 let layerControl;
 
+// Map defaults
+const defaultHome = [39, -95];
+const defaultZoom = 5
+
+// Raster defaults
 var currentOpacity = 1;
 var currentBrightness = 1.0;
 var bandOrder = [0, 1, 2]; // Default RGB order
 
+map = L.map("map", {
+    center: defaultHome,
+    zoom: defaultZoom
+});
+
+basemaps = {
+    "OpenStreetMap": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors"
+    }),
+    "Satellite": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "Tiles © Esri",
+        maxZoom: 19
+    })
+};
+
+basemaps["OpenStreetMap"].addTo(map);
+
+var popup = L.popup();
+
+function onMapClick(e) {
+    popup
+        .setLatLng(e.latlng)
+        .setContent(e.latlng.lat + ", " + e.latlng.lng)
+        .openOn(map);
+}
+
+map.on('click', onMapClick);
+
+drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+overlays = {
+    "Drawn Features": drawnItems
+};
+
+// Fly To/Fly Home panel
+const combinedControl = L.control({ position: "bottomleft" });
+
+combinedControl.onAdd = function (map) {
+    const div = L.DomUtil.create("div", "control-panel");
+    div.innerHTML = `
+        <div style="margin-top: 1px;">
+            <label>Latitude:</label>
+            <input type="number" id="latitudeInput" placeholder="Lat" step="any">
+            <label>Longitude:</label>
+            <input type="number" id="longitudeInput" placeholder="Lon" step="any">
+            <button id="flyToButton">Fly To</button>
+            <button id="flyHomeButton">Fly Home</button>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>Clicked Coordinates:</label>
+            <input type="text" id="clickedCoords" readonly style="width: 200px;">
+            <button id="copyCoordsButton">Copy</button>
+        </div>
+    `;
+
+    // Prevent map interactions when using the control panel
+    L.DomEvent.disableScrollPropagation(div);
+    L.DomEvent.disableClickPropagation(div);
+
+    // Add click event for the Fly Home button
+    const flyHomeButton = div.querySelector("#flyHomeButton");
+    flyHomeButton.onclick = function () {
+        map.flyTo(defaultHome, defaultZoom); // Fly to the home location at zoom level 13
+    };
+
+    // Add click event for the Fly To button
+    const flyToButton = div.querySelector("#flyToButton");
+    flyToButton.onclick = function () {
+        const latInput = parseFloat(div.querySelector("#latitudeInput").value);
+        const lonInput = parseFloat(div.querySelector("#longitudeInput").value);
+
+        if (isNaN(latInput) || isNaN(lonInput)) {
+            alert("Please enter latitude and longitude coorindates.");
+            return;
+        }
+
+        map.flyTo([latInput, lonInput], 13); // Fly to the entered coordinates at zoom level 13
+    };
+
+    // Copy Coordinates button functionality
+    const copyCoordsButton = div.querySelector('#copyCoordsButton');
+    copyCoordsButton.onclick = function () {
+        const clickedCoordsInput = div.querySelector('#clickedCoords').value;
+
+        if (!clickedCoordsInput) {
+            alert('No coordinates available to copy.');
+            return;
+        }
+
+        // Write to clipboard
+        navigator.clipboard.writeText(clickedCoordsInput)
+            // .then(() => alert('Coordinates copied to clipboard!'))
+            .catch((err) => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy coordinates. Check your browser permissions.');
+            });
+    };
+
+    return div;
+};
+
+// Add the combined control to the map
+combinedControl.addTo(map);
+
+map.on('click', function (e) {
+    const clickedCoords = document.querySelector('#clickedCoords');
+    clickedCoords.value = `${e.latlng.lat}, ${e.latlng.lng}`;
+});
+
+// Store the layer control reference
+layerControl = L.control.layers(basemaps, overlays, {
+    position: "topright",
+    collapsed: false
+}).addTo(map);
+
+const drawControl = new L.Control.Draw({
+    draw: {
+        polygon: true,
+        circle: true,
+        rectangle: true,
+        polyline: true,
+        marker: true
+    },
+    edit: {
+        featureGroup: drawnItems
+    }
+});
+map.addControl(drawControl);
+L.control.scale({position: "bottomright"}).addTo(map);
+
+map.on("draw:created", function(e) {
+    const layer = e.layer;
+    drawnItems.addLayer(layer);
+    updateJson();
+});
+
+map.on("draw:edited", updateJson);
+map.on("draw:deleted", updateJson);
+
+setTimeout(() => {
+    map.invalidateSize();
+}, 100);
+
+console.log("Map initialized successfully");
+
+
 function updateJson() {
     const drawings = drawnItems.toGeoJSON();
-    const jsonOutput = document.getElementById('jsonOutput');
+    const jsonOutput = document.getElementById("jsonOutput");
     if (jsonOutput) {
         jsonOutput.value = JSON.stringify(drawings, null, 2);
     }
 }
 
 function saveDrawings() {
-            const drawings = drawnItems.toGeoJSON();
-            const blob = new Blob([JSON.stringify(drawings, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'map-drawings.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
+    const drawings = drawnItems.toGeoJSON();
+    const blob = new Blob([JSON.stringify(drawings, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "map-vectors.json";
+    a.click();
+    URL.revokeObjectURL(url);
+}
 
 function loadDrawings() {
-	document.getElementById('loadFile').click();
+	document.getElementById("loadFile").click();
 }
 
 function handleFileSelect(event) {
@@ -46,8 +199,8 @@ function handleFileSelect(event) {
 				});
 				updateJson();
 			} catch (error) {
-				console.error('Error loading file:', error);
-				alert('Error loading file. Please make sure it\'s a valid GeoJSON file.');
+				console.error("Error loading file:", error);
+				alert("Error loading file. Please make sure it\"s a valid GeoJSON file.");
 			}
 		};
 		reader.readAsText(file);
@@ -56,15 +209,15 @@ function handleFileSelect(event) {
 
 function createControlPanel() {
     // Create control panel
-    const controlPanel = L.control({position: 'bottomright'});
+    const controlPanel = L.control({position: "bottomright"});
 
     controlPanel.onAdd = function () {
-        const div = L.DomUtil.create('div', 'geotiff-control-panel');
-        div.style.padding = '10px';
-        div.style.backgroundColor = 'white';
-        div.style.border = '2px solid rgba(0,0,0,0.2)';
-        div.style.borderRadius = '4px';
-        div.style.marginBottom = '20px';
+        const div = L.DomUtil.create("div", "geotiff-control-panel");
+        div.style.padding = "10px";
+        div.style.backgroundColor = "white";
+        div.style.border = "2px solid rgba(0,0,0,0.2)";
+        div.style.borderRadius = "4px";
+        div.style.marginBottom = "20px";
 
         div.innerHTML = `
             <div style="margin-bottom: 10px;">
@@ -108,30 +261,30 @@ function createControlPanel() {
 }
 
 async function loadGeoTIFF() {
-    const fileInput = document.getElementById('geotiffFile');
+    const fileInput = document.getElementById("geotiffFile");
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('Please select a GeoTIFF file');
+        alert("Please select a GeoTIFF file");
         return;
     }
 
-    console.log('Loading file:', file.name);
+    console.log("Loading file:", file.name);
 
     try {
         const arrayBuffer = await file.arrayBuffer();
-        console.log('File loaded as ArrayBuffer');
+        console.log("File loaded as ArrayBuffer");
         
-        console.log('Parsing GeoTIFF...');
+        console.log("Parsing GeoTIFF...");
         const parser = await parseGeoraster(arrayBuffer);
-        console.log('GeoTIFF parsed:', parser);
+        console.log("GeoTIFF parsed:", parser);
         
         if (parser.numberOfRasters < 3) {
-            alert('This GeoTIFF appears to be single-band. RGB controls will be disabled.');
+            alert("This GeoTIFF appears to be single-band. RGB controls will be disabled.");
         }
 
         if (geotiffLayer) {
-            console.log('Removing existing GeoTIFF layer');
+            console.log("Removing existing GeoTIFF layer");
             map.removeLayer(geotiffLayer);
             delete overlays["GeoTIFF"];
 			currentOpacity = 1;
@@ -179,7 +332,7 @@ async function loadGeoTIFF() {
             }
             
             layerControl = L.control.layers(basemaps, overlays, {
-                position: 'topright',
+                position: "topright",
                 collapsed: false
             }).addTo(map);
         }
@@ -189,7 +342,7 @@ async function loadGeoTIFF() {
 
         // Add control panel
 
-		const existingControl = document.querySelector('.geotiff-control-panel');
+		const existingControl = document.querySelector(".geotiff-control-panel");
 
 		if (existingControl) {
 			existingControl.parentNode.removeChild(existingControl);
@@ -199,21 +352,21 @@ async function loadGeoTIFF() {
         controlPanel.addTo(map);
 
         // Setup event listeners
-        document.getElementById('opacitySlider').addEventListener('input', function(e) {
+        document.getElementById("opacitySlider").addEventListener("input", function(e) {
             currentOpacity = parseInt(e.target.value) / 100;
-            document.getElementById('opacityValue').textContent = `${e.target.value}%`;
+            document.getElementById("opacityValue").textContent = `${e.target.value}%`;
             updateGeoRasterLayer();
         });
 
-        document.getElementById('brightnessSlider').addEventListener('input', function(e) {
+        document.getElementById("brightnessSlider").addEventListener("input", function(e) {
             currentBrightness = parseInt(e.target.value) / 100;
-            document.getElementById('brightnessValue').textContent = `${e.target.value}%`;
+            document.getElementById("brightnessValue").textContent = `${e.target.value}%`;
             updateGeoRasterLayer();
         });
 
-        const bandSelects = ['redBand', 'greenBand', 'blueBand'];
+        const bandSelects = ["redBand", "greenBand", "blueBand"];
         bandSelects.forEach((id, index) => {
-            document.getElementById(id).addEventListener('change', function(e) {
+            document.getElementById(id).addEventListener("change", function(e) {
                 bandOrder[index] = parseInt(e.target.value);
                 updateGeoRasterLayer();
             });
@@ -228,152 +381,9 @@ async function loadGeoTIFF() {
         map.fitBounds(bounds);
 
     } catch (error) {
-        console.error('Detailed error loading GeoTIFF:', error);
-        console.error('Error stack:', error.stack);
-        alert('Error loading GeoTIFF file. Please check the console for details.');
+        console.error("Detailed error loading GeoTIFF:", error);
+        console.error("Error stack:", error.stack);
+        alert("Error loading GeoTIFF file. Please check the console for details.");
     }
 }
-
-
-window.addEventListener('load', function() {
-    if (typeof L === 'undefined') {
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').textContent = 'Error: Leaflet library failed to load. Please check your internet connection.';
-        return;
-    }
-
-    try {
-
-        const defaultHome = [39, -95];
-        const defaultZoom = 5
-        
-        map = L.map('map', {
-            center: defaultHome,
-            zoom: defaultZoom
-        });
-
-        basemaps = {
-            "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap contributors'
-            }),
-            "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles © Esri',
-                maxZoom: 19
-            })
-        };
-
-        basemaps["OpenStreetMap"].addTo(map);
-
-        drawnItems = new L.FeatureGroup();
-        map.addLayer(drawnItems);
-
-        overlays = {
-            "Drawn Features": drawnItems
-        };
-
-        // Create a combined control panel for "Fly Home" and "Fly To"
-        const combinedControl = L.control({ position: 'bottomleft' });
-
-        combinedControl.onAdd = function (map) {
-            const div = L.DomUtil.create('div', 'control-panel');
-            div.innerHTML = `
-                <div style="margin-top: 1px;">
-                    <label>Latitude:</label>
-                    <input type="number" id="latitudeInput" placeholder="Lat" step="any">
-                    <label>Longitude:</label>
-                    <input type="number" id="longitudeInput" placeholder="Lon" step="any">
-                    <button id="flyToButton">Fly To</button>
-                    <button id="flyHomeButton">Fly Home</button>
-                </div>
-                <div style="margin-top: 10px;">
-                    <label>Clicked Coordinates:</label>
-                    <input type="text" id="clickedCoords" readonly style="width: 200px;">
-                    <button id="copyCoordsButton">Copy</button>
-                </div>
-            `;
-
-            // Prevent map interactions when using the control panel
-            L.DomEvent.disableScrollPropagation(div);
-            L.DomEvent.disableClickPropagation(div);
-
-            // Add click event for the Fly Home button
-            const flyHomeButton = div.querySelector('#flyHomeButton');
-            flyHomeButton.onclick = function () {
-                map.flyTo(defaultHome, defaultZoom); // Fly to the home location at zoom level 13
-            };
-
-            // Add click event for the Fly To button
-            const flyToButton = div.querySelector('#flyToButton');
-            flyToButton.onclick = function () {
-                const latInput = parseFloat(div.querySelector('#latitudeInput').value);
-                const lonInput = parseFloat(div.querySelector('#longitudeInput').value);
-
-                if (isNaN(latInput) || isNaN(lonInput)) {
-                    alert('Please enter valid latitude and longitude values.');
-                    return;
-                }
-
-                map.flyTo([latInput, lonInput], 13); // Fly to the entered coordinates at zoom level 13
-            };
-
-            // Copy Coordinates button functionality
-            const copyCoordsButton = div.querySelector('#copyCoordsButton');
-            copyCoordsButton.onclick = function () {
-                const clickedCoordsInput = div.querySelector('#clickedCoords');
-            };
-
-            return div;
-        };
-
-        // Add the combined control to the map
-        combinedControl.addTo(map);
-
-        map.on('click', function (e) {
-            const clickedCoords = document.querySelector('#clickedCoords');
-            clickedCoords.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
-        });
-
-
-        // Store the layer control reference
-        layerControl = L.control.layers(basemaps, overlays, {
-            position: 'topright',
-            collapsed: false
-        }).addTo(map);
-
-        const drawControl = new L.Control.Draw({
-            draw: {
-                polygon: true,
-                circle: true,
-                rectangle: true,
-                polyline: true,
-                marker: true
-            },
-            edit: {
-                featureGroup: drawnItems
-            }
-        });
-        map.addControl(drawControl);
-
-        map.on('draw:created', function(e) {
-            const layer = e.layer;
-            drawnItems.addLayer(layer);
-            updateJson();
-        });
-
-        map.on('draw:edited', updateJson);
-        map.on('draw:deleted', updateJson);
-
-        setTimeout(() => {
-            map.invalidateSize();
-        }, 100);
-
-        console.log('Map initialized successfully');
-
-    } catch (error) {
-        console.error('Map initialization error:', error);
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').textContent = 'Error initializing map: ' + error.message;
-    }
-});
 
