@@ -90,21 +90,21 @@ combinedControl.onAdd = function (map) {
     };
 
     // Copy Coordinates button functionality
-    const copyCoordsButton = div.querySelector('#copyCoordsButton');
+    const copyCoordsButton = div.querySelector("#copyCoordsButton");
     copyCoordsButton.onclick = function () {
-        const clickedCoordsInput = div.querySelector('#clickedCoords').value;
+        const clickedCoordsInput = div.querySelector("#clickedCoords").value;
 
         if (!clickedCoordsInput) {
-            alert('No coordinates available to copy.');
+            alert("No coordinates available to copy.");
             return;
         }
 
         // Write to clipboard
         navigator.clipboard.writeText(clickedCoordsInput)
-            // .then(() => alert('Coordinates copied to clipboard!'))
+            // .then(() => alert("Coordinates copied to clipboard!"))
             .catch((err) => {
-                console.error('Failed to copy text: ', err);
-                alert('Failed to copy coordinates. Check your browser permissions.');
+                console.error("Failed to copy text: ", err);
+                alert("Failed to copy coordinates. Check your browser permissions.");
             });
     };
 
@@ -114,8 +114,8 @@ combinedControl.onAdd = function (map) {
 // Add the combined control to the map
 combinedControl.addTo(map);
 
-map.on('click', function (e) {
-    const clickedCoords = document.querySelector('#clickedCoords');
+map.on("click", function (e) {
+    const clickedCoords = document.querySelector("#clickedCoords");
     clickedCoords.value = `${e.latlng.lat}, ${e.latlng.lng}`;
 });
 
@@ -128,16 +128,28 @@ layerControl = L.control.layers(basemaps, overlays, {
 const drawControl = new L.Control.Draw({
     draw: {
         polygon: {
-            repeatMode: true
+            repeatMode: true,
+            shapeOptions: {
+                color: "#3388ff"
+            }
         },
         circle: {
-            repeatMode: true
+            repeatMode: true,
+            shapeOptions: {
+                color: "#3388ff"
+            }
         },
         rectangle: {
-            repeatMode: true
+            repeatMode: true,
+            shapeOptions: {
+                color: "#3388ff"
+            }
         },
         polyline: {
-            repeatMode: true
+            repeatMode: true,
+            shapeOptions: {
+                color: "#3388ff"
+            }
         },
         marker: {
             repeatMode: true
@@ -154,7 +166,7 @@ map.on("draw:created", function(e) {
     let layer = e.layer;
     
     // Convert circle to polygon if the layer is a circle
-    if (e.layerType === 'circle') {
+    if (e.layerType === "circle") {
         const center = layer.getLatLng();
         const radius = layer.getRadius();
         const points = 32; // Number of points to create the polygon
