@@ -35,17 +35,6 @@ basemaps["OpenStreetMap"].addTo(map);
 
 L.control.scale({position: "bottomright"}).addTo(map);
 
-var popup = L.popup();
-
-function onMapClick(e) {
-    popup
-        .setLatLng(e.latlng)
-        .setContent(e.latlng.lat + ", " + e.latlng.lng)
-        .openOn(map);
-}
-
-map.on('click', onMapClick);
-
 drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 
@@ -55,6 +44,8 @@ overlays = {
 
 // Fly To/Fly Home panel
 const combinedControl = L.control({ position: "bottomleft" });
+
+let showCoordinatesPopup = true;
 
 combinedControl.onAdd = function (map) {
     const div = L.DomUtil.create("div", "control-panel");
