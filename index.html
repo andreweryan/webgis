@@ -26,7 +26,7 @@
         }
 
         #map {
-            height: 75vh;
+            height: 100vh;
             width: 100%;
             border: 2px solid #ccc;
             margin-bottom: 20px;
@@ -138,35 +138,31 @@
             background-color: #45a049 !important;
         }
 
-        @media (max-width: 600px) {
+        /* @media (max-width: 600px) {
             .controls {
-                margin: 10px 0;
-                padding: 10px;
+                margin: 1px 0;
+                padding: 1px;
             }
 
             .controls button {
-                margin-bottom: 100px;
+                margin-bottom: 1px;
                 width: 100%;
             }
 
             #map {
-                min-height: 300px;
+                min-height: 100px;
             }
-        }
+        } */
     </style>
 </head>
 <body>
     <div id="error" class="error">Error loading map. Please check the console for details.</div>
     <div id="map"></div>
-    <div class="controls">
-        <button onclick="saveDrawings()">Save Drawings</button>
-        <button onclick="loadDrawings()">Load Drawings</button>
-        <input type="file" id="loadFile" style="display: none" onchange="handleFileSelect(event)">
-        <textarea id="jsonOutput" placeholder="Drawn shapes will appear here in JSON format"></textarea>
+    <!-- <div class="controls">
 		<input type="file" id="geotiffFile" accept=".tif,.tiff" style="display: none" onchange="loadGeoTIFF()">
 		<button onclick="document.getElementById('geotiffFile').click()">Upload GeoTIFF</button>
 		<textarea id="jsonOutput" style="display: none;"></textarea>
-    </div>
+    </div> -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
