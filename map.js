@@ -14,6 +14,7 @@ const defaultZoom = 5
 var currentOpacity = 1;
 var currentBrightness = 1.0;
 let currentParser = null;
+var bandOrder = [0, 1, 2];
 
 // Vector defaults
 let currentFileName = "map-vectors.json"
@@ -437,8 +438,13 @@ async function loadGeoTIFF() {
         console.log("GeoTIFF parsed. Number of bands:", currentParser.numberOfRasters);
         console.log(currentParser)
 
-        // Extract all RGB values
-        const [redArray, greenArray, blueArray] = currentParser.values;
+        // Extract RGB values
+        // const [redArray, greenArray, blueArray] = currentParser.values;
+
+        const redArray = currentParser.values[bandOrder[0]];
+        const greenArray = currentParser.values[bandOrder[1]];
+        const blueArray = currentParser.values[bandOrder[2]];
+        
 
         // Sample the data to improve performance
         function sampleArray(array, step = 10) {
@@ -453,22 +459,32 @@ async function loadGeoTIFF() {
         }
 
         const sampledRed = sampleArray(redArray);
+        console.log(sampledRed)
         const sampledGreen = sampleArray(greenArray);
         const sampledBlue = sampleArray(blueArray);
 
         // Calculate percentiles
-        function calculatePercentile(values, percentile) {
-            const sorted = values.sort((a, b) => a - b);
-            const index = Math.floor(percentile * sorted.length);
-            return sorted[index];
-        }
+        // function calculatePercentile(values, percentile) {
+        //     const sorted = values.sort((a, b) => a - b);
+        //     const index = Math.floor(percentile * sorted.length);
+        //     return sorted[index];
+        // }
 
-        const redMin = calculatePercentile(sampledRed, 0.02);
-        const redMax = calculatePercentile(sampledRed, 0.98);
-        const greenMin = calculatePercentile(sampledGreen, 0.02);
-        const greenMax = calculatePercentile(sampledGreen, 0.98);
-        const blueMin = calculatePercentile(sampledBlue, 0.02);
-        const blueMax = calculatePercentile(sampledBlue, 0.98);
+        // const redMin = calculatePercentile(sampledRed, 0.02);
+        // const redMax = calculatePercentile(sampledRed, 0.98);
+        // const greenMin = calculatePercentile(sampledGreen, 0.02);
+        // const greenMax = calculatePercentile(sampledGreen, 0.98);
+        // const blueMin = calculatePercentile(sampledBlue, 0.02);
+        // const blueMax = calculatePercentile(sampledBlue, 0.98);
+        
+        // Calculate min max for scaling instead of pct clip
+        const redMin = isNaN(Math.min(...sampledRed)) ? 0 : Math.min(...sampledRed);
+        const redMax = isNaN(Math.max(...sampledRed)) ? 0 : Math.max(...sampledRed);
+        const greenMin = isNaN(Math.min(...sampledGreen)) ? 0 : Math.min(...sampledGreen);
+        const greenMax = isNaN(Math.max(...sampledGreen)) ? 0 : Math.max(...sampledGreen);
+        const blueMin = isNaN(Math.min(...sampledBlue)) ? 0 : Math.min(...sampledBlue);
+        const blueMax = isNaN(Math.max(...sampledBlue)) ? 0 : Math.max(...sampledBlue);
+
 
         // Function to normalize and apply brightness
         function normalizeValue(value, min, max) {
@@ -486,7 +502,7 @@ async function loadGeoTIFF() {
             delete overlays["GeoTIFF"];
             currentOpacity = 1;
             currentBrightness = 1.0;
-            bandOrder = [0, 1, 2]; // Reset to default RGB order
+            ; // Reset to default RGB order
         }
 
         updateBandSelectionDropdowns(currentParser.numberOfRasters);
