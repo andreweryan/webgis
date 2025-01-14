@@ -6,9 +6,11 @@ open browser and go to `http://localhost:8000/`
 ----
 
 ### To Do:
-* Handle 4+ band GeoTIFF
-* Add additional bands to the R, G, B band selector
-* Implement histogram clippling for raster layers (e.g., 2%-98%)
+* ~~Handle 4+ band GeoTIFF~~
+* ~~Add additional bands to the R, G, B band selector~~
+* ~~Implement histogram clippling for raster layers (e.g., 2%-98%)~~
+* Implement dynamic user selected percent clip values, add lower/upper bound box to rasterControlPanel
+* Calculate min/max values for each band in the image vs 1st 3 bands/arrays
 * Center click and pan while drawing a feature
 * Attribute pop up when clicking a feature
 * Edit attributes in pop up

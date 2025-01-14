@@ -14,7 +14,7 @@ const defaultZoom = 5
 var currentOpacity = 1;
 var currentBrightness = 1.0;
 var bandOrder = [0, 1, 2]; // Default RGB order
-let currentParser = null;
+
 
 // Vector defaults
 let currentFileName = "map-vectors.json"
@@ -63,9 +63,9 @@ overlays = {
 };
 
 // Fly To/Fly Home panel
-const coordControls = L.control({ position: "bottomleft" });
+const combinedControl = L.control({ position: "bottomleft" });
 
-coordControls.onAdd = function (map) {
+combinedControl.onAdd = function (map) {
     const div = L.DomUtil.create("div", "control-panel");
     div.innerHTML = `
         <div style="margin-top: 1px;">
@@ -245,11 +245,11 @@ function saveDrawings(saveAs = false) {
     }
 }
 
-// Load/ Save Control Panel --- need to rename to something more unique eg saveControlPanel
-function saveControlPanel() {
-    const saveControls = L.control({ position: "topleft" });
+// Load/ Save Control Panel
+function createSaveControl() {
+    const saveControl = L.control({ position: "topleft" });
     
-    saveControls.onAdd = function (map) {
+    saveControl.onAdd = function (map) {
         const div = L.DomUtil.create("div", "save-control");
         
         // Create hidden file input and control buttons
@@ -304,7 +304,7 @@ function saveControlPanel() {
         return div;
     };
     
-    return saveControls;
+    return saveControl;
 }
 
 // Load GeoJSON
@@ -363,11 +363,12 @@ function handleFileSelect(event) {
     }
 }
 
-// Raster Control Panel --- need to rename to something more unique eg rasterControlPanel
-function rasterControlPanel() {
-    const rasterControls = L.control({position: "bottomright"});
+// Raster Control Panel
+function createControlPanel() {
+    // Create control panel
+    const controlPanel = L.control({position: "bottomright"});
 
-    rasterControls.onAdd = function () {
+    controlPanel.onAdd = function () {
         const div = L.DomUtil.create("div", "geotiff-control-panel");
         div.style.padding = "10px";
         div.style.backgroundColor = "white";
@@ -394,19 +395,23 @@ function rasterControlPanel() {
                 <input type="range" id="brightnessSlider" min="0" max="200" value="100"
                     style="width: 200px;">
             </div>
-            <div style="display: flex; gap: 5px;">
-                <div>
-                    <label>Red:</label><br>
-                    <select id="redBand" style="width: 75px;"></select>
-                </div>
-                <div>
-                    <label>Green:</label><br>
-                    <select id="greenBand" style="width: 75px;"></select>
-                </div>
-                <div>
-                    <label>Blue:</label><br>
-                    <select id="blueBand" style="width: 75px;"></select>
-                </div>
+            <div style="margin-bottom: 10px;">
+                <label>Band Order:</label><br>
+                <select id="redBand" style="width: 60px; margin-right: 5px;">
+                    <option value="0">R</option>
+                    <option value="1">G</option>
+                    <option value="2">B</option>
+                </select>
+                <select id="greenBand" style="width: 60px; margin-right: 5px;">
+                    <option value="1">G</option>
+                    <option value="0">R</option>
+                    <option value="2">B</option>
+                </select>
+                <select id="blueBand" style="width: 60px;">
+                    <option value="2">B</option>
+                    <option value="0">R</option>
+                    <option value="1">G</option>
+                </select>
             </div>
         `;
 
@@ -417,7 +422,7 @@ function rasterControlPanel() {
         return div;
     };
 
-    return rasterControls;
+    return controlPanel;
 }
 
 // Load Raster Layer
@@ -434,83 +439,54 @@ async function loadGeoTIFF() {
 
     try {
         const arrayBuffer = await file.arrayBuffer();
-        currentParser = await parseGeoraster(arrayBuffer);
-        console.log("GeoTIFF parsed. Number of bands:", currentParser.numberOfRasters);
-        console.log(currentParser)
-
-        // Extract all RGB values
-        const [redArray, greenArray, blueArray] = currentParser.values;
-
-        // Sample the data to improve performance
-        function sampleArray(array, step = 10) {
-            const sampled = [];
-            for (let i = 0; i < array.length; i += step) {
-                for (let j = 0; j < array[i].length; j += step) {
-                    const value = array[i][j];
-                    if (value !== null) sampled.push(value);
-                }
-            }
-            return sampled;
-        }
-
-        const sampledRed = sampleArray(redArray);
-        const sampledGreen = sampleArray(greenArray);
-        const sampledBlue = sampleArray(blueArray);
-
-        // Calculate percentiles
-        function calculatePercentile(values, percentile) {
-            const sorted = values.sort((a, b) => a - b);
-            const index = Math.floor(percentile * sorted.length);
-            return sorted[index];
-        }
-
-        const redMin = calculatePercentile(sampledRed, 0.02);
-        const redMax = calculatePercentile(sampledRed, 0.98);
-        const greenMin = calculatePercentile(sampledGreen, 0.02);
-        const greenMax = calculatePercentile(sampledGreen, 0.98);
-        const blueMin = calculatePercentile(sampledBlue, 0.02);
-        const blueMax = calculatePercentile(sampledBlue, 0.98);
-
-        // Function to normalize and apply brightness
-        function normalizeValue(value, min, max) {
-            return (value - min) / (max - min);
-        }
-
-        function adjustColor(value, min, max, brightness) {
-            const normalized = normalizeValue(value, min, max);
-            return Math.min(255, Math.max(0, normalized * 255 * brightness));
+        console.log("File loaded as ArrayBuffer");
+        
+        console.log("Parsing GeoTIFF...");
+        const parser = await parseGeoraster(arrayBuffer);
+        console.log("GeoTIFF parsed:", parser);
+        
+        if (parser.numberOfRasters < 3) {
+            alert("This GeoTIFF appears to be single-band. RGB controls will be disabled.");
         }
 
         if (geotiffLayer) {
             console.log("Removing existing GeoTIFF layer");
             map.removeLayer(geotiffLayer);
             delete overlays["GeoTIFF"];
-            currentOpacity = 1;
-            currentBrightness = 1.0;
-            bandOrder = [0, 1, 2]; // Reset to default RGB order
+			currentOpacity = 1;
+			currentBrightness = 1.0;
+			bandOrder = [0, 1, 2]; // Default RGB order
         }
-
-        updateBandSelectionDropdowns(currentParser.numberOfRasters);
 
         function updateGeoRasterLayer() {
             if (geotiffLayer) {
                 map.removeLayer(geotiffLayer);
             }
-            
-            console.log("Current band order:", bandOrder); // Debug log
-            
+
             geotiffLayer = new GeoRasterLayer({
-                georaster: currentParser,
+                georaster: parser,
                 opacity: currentOpacity,
                 resolution: 256,
                 pixelValuesToColorFn: values => {
-                    if (values.length > Math.max(...bandOrder)) {
-                        const red = adjustColor(values[bandOrder[0]], redMin, redMax, currentBrightness);
-                        const green = adjustColor(values[bandOrder[1]], greenMin, greenMax, currentBrightness);
-                        const blue = adjustColor(values[bandOrder[2]], blueMin, blueMax, currentBrightness);
-                        return `rgb(${red}, ${green}, ${blue})`;
+                    if (values.length >= 3) {
+                        const red = values[bandOrder[0]];
+                        const green = values[bandOrder[1]];
+                        const blue = values[bandOrder[2]];
+                        
+                        if (red === null || green === null || blue === null) return null;
+                        
+                        // Apply brightness
+                        const adjustedRed = Math.min(255, Math.max(0, red * currentBrightness));
+                        const adjustedGreen = Math.min(255, Math.max(0, green * currentBrightness));
+                        const adjustedBlue = Math.min(255, Math.max(0, blue * currentBrightness));
+                        
+                        return `rgb(${adjustedRed}, ${adjustedGreen}, ${adjustedBlue})`;
                     }
-                    return null;
+                    
+                    const value = values[0];
+                    if (value === null) return null;
+                    const adjusted = Math.min(255, Math.max(0, value * currentBrightness));
+                    return `rgb(${adjusted}, ${adjusted}, ${adjusted})`;
                 }
             });
 
@@ -526,7 +502,7 @@ async function loadGeoTIFF() {
                 collapsed: false
             }).addTo(map);
         }
-        
+
         // Initial layer creation
         updateGeoRasterLayer();
 
@@ -538,10 +514,8 @@ async function loadGeoTIFF() {
 			existingControl.parentNode.removeChild(existingControl);
 		} 
 			
-        const rasterControls = rasterControlPanel();
-        rasterControls.addTo(map);
-
-        updateBandSelectionDropdowns(currentParser.numberOfRasters);
+        const controlPanel = createControlPanel();
+        controlPanel.addTo(map);
 
         // Setup event listeners
         document.getElementById("opacitySlider").addEventListener("input", function(e) {
@@ -556,25 +530,18 @@ async function loadGeoTIFF() {
             updateGeoRasterLayer();
         });
 
-        ["redBand", "greenBand", "blueBand"].forEach((id, index) => {
-            const select = document.getElementById(id);
-            select.addEventListener("change", function (e) {
-                const newBandIndex = parseInt(e.target.value);
-                console.log(`Changing ${id} to band ${newBandIndex}`);
-                
-                // Update band order
-                bandOrder[index] = newBandIndex;
-                console.log("Updated band order:", bandOrder);
-        
-                // Refresh the GeoTIFF layer
+        const bandSelects = ["redBand", "greenBand", "blueBand"];
+        bandSelects.forEach((id, index) => {
+            document.getElementById(id).addEventListener("change", function(e) {
+                bandOrder[index] = parseInt(e.target.value);
                 updateGeoRasterLayer();
             });
         });
 
         // Create bounds and fit map
         const bounds = L.latLngBounds(
-            [currentParser.ymin, currentParser.xmin],
-            [currentParser.ymax, currentParser.xmax]
+            [parser.ymin, parser.xmin],
+            [parser.ymax, parser.xmax]
         );
         
         map.fitBounds(bounds);
@@ -590,33 +557,6 @@ async function loadGeoTIFF() {
     }
 }
 
-function updateBandSelectionDropdowns(numberOfBands) {
-    const bandSelects = ["redBand", "greenBand", "blueBand"];
-    const defaultValues = [0, 1, 2]; // Default RGB selection
-
-    bandSelects.forEach((selectId, index) => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-
-        select.innerHTML = ''; // Clear existing options
-
-        // Add options for each band
-        for (let i = 0; i < numberOfBands; i++) {
-            const option = document.createElement('option');
-            option.value = i;
-            option.text = `Band ${i + 1}`;
-            select.appendChild(option);
-        }
-
-        // Set default value if available, otherwise first band
-        if (defaultValues[index] < numberOfBands) {
-            select.value = defaultValues[index];
-        } else {
-            select.value = 0;
-        }
-    });
-}
-
 // Remove Raster Layer
 function removeGeoTIFF() {
     if (geotiffLayer) {
@@ -630,7 +570,6 @@ function removeGeoTIFF() {
 
         // Reset variables related to GeoTIFF
         geotiffLayer = null;
-        currentParser = null;
         currentOpacity = 1;
         currentBrightness = 1.0;
         bandOrder = [0, 1, 2]; // Default RGB order
@@ -662,20 +601,20 @@ function addFlyToGeoTIFFButton(bounds) {
     });
 
     // Append the button next to the upload/remove GeoTIFF buttons
-    const rasterControls = document.querySelector(".geotiff-control-panel");
-    if (rasterControls) {
-        rasterControls.appendChild(button);
+    const controlPanel = document.querySelector(".geotiff-control-panel");
+    if (controlPanel) {
+        controlPanel.appendChild(button);
     }
 }
 
 map.addControl(drawControl);
 
-saveControlPanel().addTo(map);
+createSaveControl().addTo(map);
 
-coordControls.addTo(map);
+combinedControl.addTo(map);
 
-const rasterControls = rasterControlPanel();
-rasterControls.addTo(map);
+const controlPanel = createControlPanel();
+controlPanel.addTo(map);
 
 map.on("draw:created", function(e) {
     let layer = e.layer;
