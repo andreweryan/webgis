@@ -13,7 +13,6 @@ const defaultZoom = 5
 // Raster defaults
 var currentOpacity = 1;
 var currentBrightness = 1.0;
-var bandOrder = [0, 1, 2]; // Default RGB order
 let currentParser = null;
 
 // Vector defaults
