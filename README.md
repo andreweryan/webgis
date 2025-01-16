@@ -29,4 +29,4 @@ open browser and go to `http://localhost:8000/`
 - [ ] Fix bug where switching shapes gets "stuck" until clicking off previous shape type or random feature drawn before continuing
 - [ ] Develop backend python/gdal process to ensure uploaded GeoTIFFs are proper formats for display (e.g., EPSG 4326/3857, byte scaled, COG, internally tiled, compression, etc.)
 - [ ] Add Raster layer from external web source
-- [ ] Add vector layer from database
+- [ ] Add vector layer from database 
